@@ -719,15 +719,21 @@ class ISDBTuner:
                 continue  # ISDB-T と ISDB-S の両方非対応の DVB デバイスはスキップ
 
             # 一般にシステムから取得できるチューナー名は不正確なことが多いため、別途 PCI ID や USB ID からチューナー名を特定する
+            sysfs_device_path = Path(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device').resolve()
 
             # 既知の USB チューナーデバイス
-            if (
-                Path(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/idVendor').exists()
-                and Path(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/idProduct').exists()
-            ):
-                with open(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/idVendor') as f:
+            usb_device_path = next(
+                (
+                    parent
+                    for parent in (sysfs_device_path, *sysfs_device_path.parents)
+                    if (parent / 'idVendor').is_file() and (parent / 'idProduct').is_file()
+                ),
+                None,
+            )
+            if usb_device_path is not None:
+                with open(usb_device_path / 'idVendor') as f:
                     vendor_id = int(f.read().strip(), 16)
-                with open(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/idProduct') as f:
+                with open(usb_device_path / 'idProduct') as f:
                     product_id = int(f.read().strip(), 16)
 
                 # USB ID の参考資料
@@ -752,18 +758,18 @@ class ISDBTuner:
 
             # 既知の PCI(e) チューナーデバイス
             elif (
-                Path(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/vendor').exists()
-                and Path(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/device').exists()
-                and Path(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/subsystem_vendor').exists()
-                and Path(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/subsystem_device').exists()
+                (sysfs_device_path / 'vendor').exists()
+                and (sysfs_device_path / 'device').exists()
+                and (sysfs_device_path / 'subsystem_vendor').exists()
+                and (sysfs_device_path / 'subsystem_device').exists()
             ):
-                with open(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/vendor') as f:
+                with open(sysfs_device_path / 'vendor') as f:
                     vendor_id = int(f.read().strip(), 16)
-                with open(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/device') as f:
+                with open(sysfs_device_path / 'device') as f:
                     device_id = int(f.read().strip(), 16)
-                with open(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/subsystem_vendor') as f:
+                with open(sysfs_device_path / 'subsystem_vendor') as f:
                     subsystem_vendor_id = int(f.read().strip(), 16)
-                with open(f'/sys/class/dvb/dvb{adapter_number}.frontend0/device/subsystem_device') as f:
+                with open(sysfs_device_path / 'subsystem_device') as f:
                     subsystem_device_id = int(f.read().strip(), 16)
 
                 # PCI ID の参考資料
